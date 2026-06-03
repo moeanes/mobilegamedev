@@ -15,6 +15,7 @@ public class RangedEnemy : MonoBehaviour
     private const float Deadzone = 0.6f;
     private Rigidbody2D body;
     private Transform target;
+    private float radius = 0.4f;
     private float cooldown;
 
     public void SetTarget(Transform player)
@@ -27,6 +28,12 @@ public class RangedEnemy : MonoBehaviour
         body = GetComponent<Rigidbody2D>();
         body.gravityScale = 0f;
         body.freezeRotation = true;
+
+        CircleCollider2D circle = GetComponent<CircleCollider2D>();
+        if (circle != null)
+        {
+            radius = circle.radius;
+        }
     }
 
     private void FixedUpdate()
@@ -47,6 +54,11 @@ public class RangedEnemy : MonoBehaviour
         else if (distance < preferredDistance - Deadzone)
         {
             move = -direction;      // back away to keep range
+        }
+
+        if (move.sqrMagnitude > 0.0001f)
+        {
+            move = EnemyNavigation.Steer(body.position, move, radius);
         }
 
         body.MovePosition(body.position + move * moveSpeed * Time.fixedDeltaTime);

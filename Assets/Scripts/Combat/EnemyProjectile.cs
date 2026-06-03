@@ -34,6 +34,13 @@ public class EnemyProjectile : MonoBehaviour
             return;
         }
 
+        if (other.gameObject.layer == GameLayers.Wall)
+        {
+            consumed = true;
+            Destroy(gameObject);
+            return;
+        }
+
         PlayerHealth player = other.GetComponent<PlayerHealth>();
         if (player != null)
         {

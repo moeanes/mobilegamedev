@@ -36,6 +36,13 @@ public class Bullet : MonoBehaviour
             return;
         }
 
+        if (other.gameObject.layer == GameLayers.Wall)
+        {
+            consumed = true;
+            Destroy(gameObject);
+            return;
+        }
+
         EnemyHealth enemy = other.GetComponent<EnemyHealth>();
         if (enemy != null)
         {

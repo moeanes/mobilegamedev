@@ -10,6 +10,7 @@ public class MeleeEnemy : MonoBehaviour
 
     private Rigidbody2D body;
     private Transform target;
+    private float radius = 0.4f;
     private float lastDamageTime = -999f;
 
     public void SetTarget(Transform player)
@@ -22,6 +23,12 @@ public class MeleeEnemy : MonoBehaviour
         body = GetComponent<Rigidbody2D>();
         body.gravityScale = 0f;
         body.freezeRotation = true;
+
+        CircleCollider2D circle = GetComponent<CircleCollider2D>();
+        if (circle != null)
+        {
+            radius = circle.radius;
+        }
     }
 
     private void FixedUpdate()
@@ -37,7 +44,8 @@ public class MeleeEnemy : MonoBehaviour
             return;
         }
 
-        body.MovePosition(body.position + toTarget.normalized * moveSpeed * Time.fixedDeltaTime);
+        Vector2 direction = EnemyNavigation.Steer(body.position, toTarget, radius);
+        body.MovePosition(body.position + direction * moveSpeed * Time.fixedDeltaTime);
     }
 
     private void OnCollisionStay2D(Collision2D collision)

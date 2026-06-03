@@ -8,12 +8,20 @@ public class LevelManager : MonoBehaviour
 {
     public static LevelManager Instance { get; private set; }
 
-    public Vector2 arenaMin = new Vector2(-13f, -8f);
-    public Vector2 arenaMax = new Vector2(13f, 8f);
-    public float spawnRingMin = 7f;
-    public float spawnRingMax = 11f;
+    // How far from the player enemies appear. Sized for a single room so they spawn on
+    // reachable floor nearby rather than across a wall.
+    public float spawnRingMin = 4f;
+    public float spawnRingMax = 8f;
     public float levelCompleteDelay = 1.5f;
 
+    // An enemy farther than this from the player is treated as stranded (stuck behind a
+    // wall) and relocated. Larger than the spawn ring and off-screen, so it never yanks
+    // an enemy the player can see.
+    private const float StrandedDistance = 16f;
+
+    private static readonly int WallMask = 1 << GameLayers.Wall;
+
+    private RoomMap map;
     private LevelData data;
     private Transform player;
     private GameObject meleeTemplate;
@@ -44,8 +52,9 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    public void Initialize(LevelData levelData, Transform playerTransform, GameObject melee, GameObject[] ranged)
+    public void Initialize(RoomMap roomMap, LevelData levelData, Transform playerTransform, GameObject melee, GameObject[] ranged)
     {
+        map = roomMap;
         data = levelData;
         player = playerTransform;
         meleeTemplate = melee;
@@ -75,7 +84,9 @@ public class LevelManager : MonoBehaviour
     {
         yield return new WaitForSeconds(0.5f);
 
-        while (spawnedCount < data.enemiesToKill)
+        // Runs until the level is finished (not just until everything is spawned) so the
+        // stranded-enemy rescue keeps working after the last spawn.
+        while (!levelComplete)
         {
             if (GameManager.Instance != null && GameManager.Instance.IsGameOver)
             {
@@ -83,12 +94,37 @@ public class LevelManager : MonoBehaviour
             }
 
             aliveEnemies.RemoveAll(enemy => enemy == null);
-            if (aliveEnemies.Count < data.maxConcurrentAlive)
+
+            if (spawnedCount < data.enemiesToKill && aliveEnemies.Count < data.maxConcurrentAlive)
             {
                 SpawnEnemy();
             }
 
+            RescueStrandedEnemies();
+
             yield return new WaitForSeconds(data.spawnInterval);
+        }
+    }
+
+    // Enemies have no real pathfinding, so one could get left behind a wall when the
+    // player changes rooms and never be reachable again — which would stall the level
+    // (the kill target could never be met). Any enemy that ends up far across the map is
+    // teleported back to a fresh reachable spot near the player. They are off-screen at
+    // that distance, so the move is never seen.
+    private void RescueStrandedEnemies()
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        Vector2 playerPosition = player.position;
+        foreach (EnemyHealth enemy in aliveEnemies)
+        {
+            if (enemy != null && Vector2.Distance(enemy.transform.position, playerPosition) > StrandedDistance)
+            {
+                enemy.transform.position = SpawnPosition();
+            }
         }
     }
 
@@ -138,15 +174,59 @@ public class LevelManager : MonoBehaviour
         spawnedCount++;
     }
 
+    // Picks a floor cell in the spawn ring that the new enemy can walk to in a straight
+    // line (no wall between it and the player). Falls back to any floor in the ring, then
+    // any floor outside the inner radius, so a spawn is always found. One pass over the
+    // floor with reservoir sampling keeps each eligible spot equally likely.
     private Vector2 SpawnPosition()
     {
         Vector2 center = player != null ? (Vector2)player.position : Vector2.zero;
-        float angle = Random.Range(0f, Mathf.PI * 2f);
-        float distance = Random.Range(spawnRingMin, spawnRingMax);
+        if (map == null)
+        {
+            return center;
+        }
 
-        Vector2 candidate = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * distance;
-        candidate.x = Mathf.Clamp(candidate.x, arenaMin.x, arenaMax.x);
-        candidate.y = Mathf.Clamp(candidate.y, arenaMin.y, arenaMax.y);
-        return candidate;
+        Vector2 lineOfSight = center;
+        Vector2 inRing = center;
+        Vector2 anyFar = center;
+        int seenLineOfSight = 0;
+        int seenInRing = 0;
+        int seenAnyFar = 0;
+
+        foreach (Vector2 point in map.FloorPoints)
+        {
+            float distance = Vector2.Distance(point, center);
+            if (distance < spawnRingMin)
+            {
+                continue;
+            }
+
+            if (Random.Range(0, ++seenAnyFar) == 0)
+            {
+                anyFar = point;
+            }
+
+            if (distance > spawnRingMax)
+            {
+                continue;
+            }
+
+            if (Random.Range(0, ++seenInRing) == 0)
+            {
+                inRing = point;
+            }
+
+            if (!Physics2D.Linecast(center, point, WallMask) && Random.Range(0, ++seenLineOfSight) == 0)
+            {
+                lineOfSight = point;
+            }
+        }
+
+        if (seenLineOfSight > 0)
+        {
+            return lineOfSight;
+        }
+
+        return seenInRing > 0 ? inRing : anyFar;
     }
 }
