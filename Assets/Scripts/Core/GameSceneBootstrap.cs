@@ -13,6 +13,7 @@ public class GameSceneBootstrap : MonoBehaviour
         LevelData data = LevelDatabase.Get(LevelDatabase.PendingLevel);
         RoomMap map = new RoomMap(data.levelIndex);
 
+        MusicPlayer.Ensure();
         ConfigureCollisions();
         EnsureGameManager();
         Camera camera = EnsureCamera();

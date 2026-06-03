@@ -13,6 +13,7 @@ public class MainMenu : MonoBehaviour
 
     private void Awake()
     {
+        MusicPlayer.Ensure();
         background = Resources.Load<Texture2D>("UI/start_screen");
         startButton = Resources.Load<Texture2D>("UI/btn_start");
         quitButton = Resources.Load<Texture2D>("UI/btn_quit");

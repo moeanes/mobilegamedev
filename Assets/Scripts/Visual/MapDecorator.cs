@@ -1,45 +1,48 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Furnishes each room according to its type, cutting hospital furniture from
-// hospital_tiles.png (rects are sheet pixel coords, bottom-left origin; sheet 512x336).
-// Furniture lines the wall opposite the corridor door (so the entrance stays clear),
-// with a few accent pieces along the near wall. Props are solid for the player; enemies
-// pass through them.
+// Furnishes each room by its type, mixing laboratory equipment (lab_stuff.png, the same
+// art set as the floor/walls) with medical furniture (hospital_tiles.png) so the facility
+// reads as a mixed lab + hospital. Each room gets one centrepiece against the wall opposite
+// its door plus two accent pieces in the back corners of the wider rooms.
+//
+// Furniture is DECORATION ONLY — no colliders — so the player can never get stuck on it
+// (only the walls block movement). Pieces sit behind the characters.
 public static class MapDecorator
 {
-    private const string SheetResource = "Props/hospital_tiles";
+    private const string LabSheetResource = "Tiles/lab_stuff";
+    private const string HospitalSheetResource = "Props/hospital_tiles";
     private const int Tile = 32;
+    private const int AccentMinWidth = 11;
 
-    private static readonly Dictionary<string, Rect> PropRects = new Dictionary<string, Rect>
+    // Rect(x, y, width, height) in sheet pixels, bottom-left origin. lab_stuff is 1184x512.
+    private static readonly Dictionary<string, Rect> LabRects = new Dictionary<string, Rect>
+    {
+        { "console_blue", new Rect(64f, 288f, 192f, 96f) },
+        { "console_red", new Rect(288f, 96f, 192f, 96f) },
+        { "tank", new Rect(960f, 192f, 64f, 96f) },
+        { "locker", new Rect(1056f, 0f, 128f, 96f) },
+        { "shelf", new Rect(1056f, 96f, 128f, 96f) },
+        { "machine", new Rect(32f, 416f, 64f, 96f) },
+        { "hazard", new Rect(640f, 32f, 64f, 160f) },
+    };
+
+    // hospital_tiles is 512x336.
+    private static readonly Dictionary<string, Rect> HospitalRects = new Dictionary<string, Rect>
     {
         { "bed", new Rect(224f, 240f, 72f, 82f) },
-        { "bed2", new Rect(288f, 158f, 66f, 84f) },
-        { "cabinet", new Rect(4f, 256f, 60f, 64f) },
-        { "shelf", new Rect(156f, 254f, 38f, 68f) },
         { "ivstand", new Rect(158f, 242f, 34f, 92f) },
-        { "bench", new Rect(6f, 222f, 128f, 30f) },
+        { "cabinet", new Rect(4f, 256f, 60f, 64f) },
         { "desk", new Rect(86f, 172f, 64f, 46f) },
-        { "monitor", new Rect(158f, 208f, 40f, 34f) },
         { "chair", new Rect(350f, 174f, 34f, 36f) },
         { "plant", new Rect(2f, 130f, 58f, 64f) },
-        { "potted", new Rect(2f, 82f, 58f, 64f) },
-        { "flowers", new Rect(58f, 94f, 40f, 52f) },
     };
 
     public static void Decorate(RoomMap map)
     {
-        Texture2D sheet = Resources.Load<Texture2D>(SheetResource);
-        if (sheet == null)
-        {
-            return;
-        }
-
-        var sprites = new Dictionary<string, Sprite>(PropRects.Count);
-        foreach (KeyValuePair<string, Rect> entry in PropRects)
-        {
-            sprites[entry.Key] = Sprite.Create(sheet, entry.Value, new Vector2(0.5f, 0.5f), Tile);
-        }
+        var sprites = new Dictionary<string, Sprite>();
+        LoadSprites(LabSheetResource, LabRects, sprites);
+        LoadSprites(HospitalSheetResource, HospitalRects, sprites);
 
         Transform parent = new GameObject("Props").transform;
         foreach (Room room in map.Rooms)
@@ -48,94 +51,66 @@ public static class MapDecorator
         }
     }
 
+    private static void LoadSprites(string resource, Dictionary<string, Rect> rects, Dictionary<string, Sprite> into)
+    {
+        Texture2D sheet = Resources.Load<Texture2D>(resource);
+        if (sheet == null)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, Rect> entry in rects)
+        {
+            into[entry.Key] = Sprite.Create(sheet, entry.Value, new Vector2(0.5f, 0.5f), Tile);
+        }
+    }
+
     private static void FurnishRoom(RoomMap map, Transform parent, Dictionary<string, Sprite> sprites, Room room)
     {
         RectInt bounds = room.Bounds;
+        string[] plan = FurnitureFor(room.Type); // [centrepiece, leftAccent, rightAccent]
+
         bool doorOnTop = bounds.yMax <= map.HeightCells / 2;
         int backRow = doorOnTop ? bounds.yMin + 1 : bounds.yMax - 2;
-        int frontRow = doorOnTop ? bounds.yMax - 2 : bounds.yMin + 1;
 
-        // Line the far wall with the room's main furniture, packed by each piece's width.
-        int x = bounds.xMin + 1;
-        foreach (string name in BackWall(room.Type))
+        Place(map, parent, sprites, plan[0], bounds.xMin + bounds.width / 2, backRow);
+
+        if (bounds.width >= AccentMinWidth)
         {
-            if (x > bounds.xMax - 2)
-            {
-                break;
-            }
-
-            PlaceProp(map, parent, sprites[name], new Vector2Int(x, backRow));
-            x += CellWidth(name);
-        }
-
-        // Equipment sitting on a lab counter, one row in from the wall.
-        x = bounds.xMin + 1;
-        foreach (string name in CounterTop(room.Type))
-        {
-            if (x > bounds.xMax - 2)
-            {
-                break;
-            }
-
-            int counterRow = doorOnTop ? backRow - 1 : backRow + 1;
-            PlaceProp(map, parent, sprites[name], new Vector2Int(x, counterRow));
-            x += CellWidth(name) + 1;
-        }
-
-        // Accent pieces (plants, chairs) spread along the near wall.
-        string[] accents = Accents(room.Type);
-        int slot = 0;
-        for (int ax = bounds.xMin + 1; ax < bounds.xMax - 1 && slot < accents.Length; ax += 3, slot++)
-        {
-            PlaceProp(map, parent, sprites[accents[slot]], new Vector2Int(ax, frontRow));
+            Place(map, parent, sprites, plan[1], bounds.xMin + 1, backRow);
+            Place(map, parent, sprites, plan[2], bounds.xMax - 2, backRow);
         }
     }
 
-    private static string[] BackWall(RoomType type)
+    private static string[] FurnitureFor(RoomType type)
     {
         switch (type)
         {
-            case RoomType.Ward: return new[] { "bed", "ivstand", "bed", "ivstand", "bed", "ivstand" };
-            case RoomType.Lab: return new[] { "bench", "bench", "bench", "bench" };
-            case RoomType.Office: return new[] { "desk", "chair", "shelf", "monitor", "cabinet" };
-            case RoomType.Pharmacy: return new[] { "cabinet", "shelf", "cabinet", "shelf", "cabinet", "shelf" };
-            case RoomType.Waiting: return new[] { "bench", "bench", "bench" };
-            default: return System.Array.Empty<string>();
+            case RoomType.Lab: return new[] { "console_blue", "tank", "machine" };
+            case RoomType.Control: return new[] { "console_red", "machine", "tank" };
+            case RoomType.Reactor: return new[] { "console_blue", "hazard", "hazard" };
+            case RoomType.Storage: return new[] { "locker", "shelf", "shelf" };
+            case RoomType.Ward: return new[] { "bed", "ivstand", "cabinet" };
+            case RoomType.MedBay: return new[] { "bed", "bed", "cabinet" };
+            case RoomType.Office: return new[] { "desk", "chair", "plant" };
+            default: return new[] { "machine", "tank", "tank" };
         }
     }
 
-    private static string[] CounterTop(RoomType type)
-        => type == RoomType.Lab ? new[] { "monitor", "shelf", "desk" } : System.Array.Empty<string>();
-
-    private static string[] Accents(RoomType type)
+    private static void Place(RoomMap map, Transform parent, Dictionary<string, Sprite> sprites, string name, int column, int row)
     {
-        switch (type)
+        if (sprites.TryGetValue(name, out Sprite sprite))
         {
-            case RoomType.Ward: return new[] { "cabinet", "potted" };
-            case RoomType.Lab: return new[] { "chair", "chair", "plant" };
-            case RoomType.Office: return new[] { "plant", "potted", "flowers" };
-            case RoomType.Pharmacy: return new[] { "plant" };
-            case RoomType.Waiting: return new[] { "potted", "plant", "flowers", "chair" };
-            default: return System.Array.Empty<string>();
+            Vector2 position = map.CellToWorld(new Vector2Int(column, row));
+
+            GameObject prop = new GameObject("Prop");
+            prop.transform.SetParent(parent, false);
+            prop.transform.position = new Vector3(position.x, position.y, 1f);
+
+            SpriteRenderer renderer = prop.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sortingOrder = -5; // above the floor (-10), below characters (10+)
+            // No collider: furniture is decoration, so the player never snags on it.
         }
-    }
-
-    private static int CellWidth(string name) => Mathf.Max(1, Mathf.CeilToInt(PropRects[name].width / Tile));
-
-    private static void PlaceProp(RoomMap map, Transform parent, Sprite sprite, Vector2Int cell)
-    {
-        Vector2 position = map.CellToWorld(cell);
-
-        GameObject prop = new GameObject("Prop");
-        prop.transform.SetParent(parent, false);
-        prop.transform.position = new Vector3(position.x, position.y, 1f);
-        prop.layer = GameLayers.Prop;
-
-        SpriteRenderer renderer = prop.AddComponent<SpriteRenderer>();
-        renderer.sprite = sprite;
-        renderer.sortingOrder = -5; // above the floor (-10), below characters (10+)
-
-        BoxCollider2D collider = prop.AddComponent<BoxCollider2D>();
-        collider.size = renderer.sprite.bounds.size * 0.7f;
     }
 }
