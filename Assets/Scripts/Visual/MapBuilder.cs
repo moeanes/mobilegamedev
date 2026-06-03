@@ -16,6 +16,12 @@ public static class MapBuilder
     private const int WallColumn = 7;
     private const int WallRow = 8;
 
+    // Door pieces in lab_stuff.png (column, row-from-top): hazard stripe panel + glowing core.
+    private const int HazardColumn = 21;
+    private const int HazardRow = 11;
+    private const int CoreColumn = 5;
+    private const int CoreRow = 5;
+
     public static void Build(RoomMap map)
     {
         Texture2D floorSheet = Resources.Load<Texture2D>("Tiles/lab_floor");
@@ -30,6 +36,47 @@ public static class MapBuilder
 
         BuildFloor(map, floorTile);
         BuildWalls(map, wallTile);
+
+        Texture2D stuffSheet = Resources.Load<Texture2D>("Tiles/lab_stuff");
+        if (stuffSheet != null)
+        {
+            BuildDoors(map, Slice(stuffSheet, HazardColumn, HazardRow), Slice(stuffSheet, CoreColumn, CoreRow));
+        }
+    }
+
+    // An auto-door over each doorway: a hazard-stripe panel with a glowing core that blocks
+    // like a wall but opens when a character approaches (see AutoDoor).
+    private static void BuildDoors(RoomMap map, Sprite hazardTile, Sprite coreTile)
+    {
+        Transform parent = new GameObject("Doors").transform;
+
+        foreach (RectInt door in map.Doors)
+        {
+            Vector2 center = map.RectCenterWorld(door);
+
+            GameObject obj = new GameObject("Door");
+            obj.transform.SetParent(parent, false);
+            obj.transform.position = new Vector3(center.x, center.y, 1.5f);
+            obj.layer = GameLayers.Wall;
+
+            SpriteRenderer panel = obj.AddComponent<SpriteRenderer>();
+            panel.sprite = hazardTile;
+            panel.drawMode = SpriteDrawMode.Tiled;
+            panel.size = new Vector2(door.width, door.height);
+            panel.sortingOrder = -3; // above walls (-4), below characters
+
+            BoxCollider2D collider = obj.AddComponent<BoxCollider2D>();
+            collider.size = new Vector2(door.width, door.height);
+
+            GameObject core = new GameObject("Core");
+            core.transform.SetParent(obj.transform, false);
+            core.transform.localPosition = Vector3.zero;
+            SpriteRenderer coreRenderer = core.AddComponent<SpriteRenderer>();
+            coreRenderer.sprite = coreTile;
+            coreRenderer.sortingOrder = -2;
+
+            obj.AddComponent<AutoDoor>();
+        }
     }
 
     private static void BuildFloor(RoomMap map, Sprite tile)

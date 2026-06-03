@@ -72,7 +72,8 @@ public class Hud : MonoBehaviour
         GUI.Label(new Rect(Screen.width * 0.5f - 130f, 16f, 260f, 38f), "Bolum " + level, infoStyle);
 
         infoStyle.alignment = TextAnchor.MiddleRight;
-        GUI.Label(new Rect(Screen.width - 360f, 16f, 340f, 38f), "Kalan dusman: " + enemiesRemaining, infoStyle);
+        // Shifted left to leave the top-right corner for the menu (three-dot) button.
+        GUI.Label(new Rect(Screen.width - 415f, 16f, 340f, 38f), "Kalan dusman: " + enemiesRemaining, infoStyle);
 
         if (!string.IsNullOrEmpty(centerMessage))
         {

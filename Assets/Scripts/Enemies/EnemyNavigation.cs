@@ -6,7 +6,7 @@ using UnityEngine;
 // corners into doorways instead of pressing uselessly into it.
 public static class EnemyNavigation
 {
-    private static readonly int WallMask = 1 << GameLayers.Wall;
+    private static readonly int ObstacleMask = (1 << GameLayers.Wall) | (1 << GameLayers.Prop);
     private const float LookAhead = 0.7f;
 
     // Directions to try, in order of preference: straight on, then gentle turns, then
@@ -35,7 +35,7 @@ public static class EnemyNavigation
     }
 
     private static bool Blocked(Vector2 from, Vector2 direction, float radius)
-        => Physics2D.Raycast(from, direction, radius + LookAhead, WallMask).collider != null;
+        => Physics2D.Raycast(from, direction, radius + LookAhead, ObstacleMask).collider != null;
 
     private static Vector2 Rotate(Vector2 v, float degrees)
     {

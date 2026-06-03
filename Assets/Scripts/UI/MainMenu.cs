@@ -63,5 +63,16 @@ public class MainMenu : MonoBehaviour
         {
             Quit();
         }
+
+        // Drawn here (after the background) so it is always on top, regardless of script
+        // execution order.
+        if (MusicPlayer.Instance != null)
+        {
+            string musicLabel = MusicPlayer.Instance.IsMuted ? "Muzik: Kapali (M)" : "Muzik: Acik (M)";
+            if (GUI.Button(new Rect(Screen.width - 180f, Screen.height - 48f, 160f, 34f), musicLabel))
+            {
+                MusicPlayer.Instance.ToggleMute();
+            }
+        }
     }
 }

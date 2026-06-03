@@ -13,8 +13,15 @@ public class GameManager : MonoBehaviour
     public string menuSceneName = "MainMenu";
 
     public GameState State { get; private set; } = GameState.Playing;
-    public bool IsPlaying => State == GameState.Playing;
+    public bool IsPaused { get; private set; }
+    public bool IsPlaying => State == GameState.Playing && !IsPaused;
     public bool IsGameOver => State == GameState.GameOver;
+
+    public void SetPaused(bool value)
+    {
+        IsPaused = value;
+        Time.timeScale = value ? 0f : 1f;
+    }
 
     private Hud hud;
 

@@ -37,15 +37,15 @@ public class GameSceneBootstrap : MonoBehaviour
 
         BuildLevelManager(map, data, player.transform, meleeTemplate, new[] { blueRanged, pinkRanged });
         Hud.Create();
+        new GameObject("PauseMenu").AddComponent<PauseMenu>();
         FitCamera(camera, map);
     }
 
     private static void ConfigureCollisions()
     {
-        // Enemies don't push each other (no clumping) and pass through furniture
-        // (so they never get stuck). Walls and the player still block them.
+        // Enemies don't push each other (no clumping). They DO collide with furniture, but
+        // EnemyNavigation steers them around it so they never get stuck on it.
         Physics2D.IgnoreLayerCollision(GameLayers.Enemy, GameLayers.Enemy, true);
-        Physics2D.IgnoreLayerCollision(GameLayers.Enemy, GameLayers.Prop, true);
     }
 
     private void EnsureGameManager()

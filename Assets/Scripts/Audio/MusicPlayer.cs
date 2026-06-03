@@ -69,17 +69,6 @@ public class MusicPlayer : MonoBehaviour
         }
     }
 
-    // Drawn from the persistent object, so the toggle appears in every scene (menu, game,
-    // end screens) without extra wiring. Bottom-right corner, clear of the other UI.
-    private void OnGUI()
-    {
-        string label = IsMuted ? "Muzik: Kapali (M)" : "Muzik: Acik (M)";
-        if (GUI.Button(new Rect(Screen.width - 180f, Screen.height - 48f, 160f, 34f), label))
-        {
-            ToggleMute();
-        }
-    }
-
     public void ToggleMute()
     {
         if (source == null)

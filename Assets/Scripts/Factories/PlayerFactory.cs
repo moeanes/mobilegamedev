@@ -7,6 +7,7 @@ public static class PlayerFactory
     {
         GameObject root = new GameObject("Player");
         root.transform.position = spawn;
+        root.layer = GameLayers.Player; // so auto-doors can detect the player approaching
 
         Rigidbody2D body = root.AddComponent<Rigidbody2D>();
         body.bodyType = RigidbodyType2D.Dynamic;
@@ -33,6 +34,9 @@ public static class PlayerFactory
         GameObject visual = new GameObject("Visual");
         visual.transform.SetParent(root.transform, false);
         visual.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
+        // Lift the sprite so the doctor's feet sit at the collider instead of sinking into
+        // the wall below (the sprite is taller than the collision circle).
+        visual.transform.localPosition = new Vector3(0f, 0.3f, 0f);
 
         SpriteRenderer renderer = visual.AddComponent<SpriteRenderer>();
         renderer.sortingOrder = 20;

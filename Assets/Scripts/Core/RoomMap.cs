@@ -43,12 +43,23 @@ public class RoomMap
         }
     }
 
-    private static readonly Layout[] Layouts = { BuildLevel1(), BuildLevel2(), BuildLevel3(), BuildLevel4(), BuildLevel5() };
+    // Each level is a full building floor plan: a grid of rooms with thin shared walls
+    // and 3-wide doorways, getting denser as levels progress. The grid fills the map so
+    // there are no wasted empty areas.
+    private static readonly Layout[] Layouts =
+    {
+        BuildGrid(3, 2, 10, 7), // L1 — six rooms
+        BuildGrid(3, 3, 9, 7),  // L2 — nine rooms
+        BuildGrid(4, 3, 9, 6),  // L3 — twelve rooms
+        BuildGrid(4, 3, 10, 7), // L4 — twelve bigger rooms
+        BuildGrid(4, 4, 9, 6),  // L5 — sixteen rooms, the final floor
+    };
 
     private readonly int width;
     private readonly int height;
     private readonly List<Room> rooms = new List<Room>();
     private readonly List<RectInt> floorRects = new List<RectInt>();
+    private readonly List<RectInt> doors = new List<RectInt>();
     private readonly HashSet<Vector2Int> floorCells = new HashSet<Vector2Int>();
     private readonly List<Vector2> floorPoints = new List<Vector2>();
     private readonly Vector2 originOffset;
@@ -58,9 +69,11 @@ public class RoomMap
     public Vector2 WorldMin { get; }
     public Vector2 WorldMax { get; }
     public Vector2 PlayerSpawn { get; }
+    public Vector2Int PlayerSpawnCell { get; }
 
     public IReadOnlyList<Room> Rooms => rooms;
     public IReadOnlyList<RectInt> FloorRects => floorRects;
+    public IReadOnlyList<RectInt> Doors => doors;
     public IReadOnlyList<Vector2> FloorPoints => floorPoints;
 
     public RoomMap(int levelIndex)
@@ -82,8 +95,10 @@ public class RoomMap
         foreach (RectInt corridor in layout.Corridors)
         {
             AddFloorRect(corridor);
+            doors.Add(corridor);
         }
 
+        PlayerSpawnCell = layout.Spawn;
         PlayerSpawn = CellToWorld(layout.Spawn);
 
         foreach (Vector2Int cell in floorCells)
@@ -131,100 +146,47 @@ public class RoomMap
         }
     }
 
-    // Level 1 — four big open rooms (2x2), wide doorways. Gentle introduction.
-    private static Layout BuildLevel1()
+    // Builds one floor: a cols x rows grid of rooms, each roomW x roomH, separated by
+    // one-cell walls and joined to neighbours by 3-wide doorways. The grid fills the whole
+    // map (rooms + thin walls + a one-cell border) so no space is wasted.
+    private static Layout BuildGrid(int cols, int rows, int roomWidth, int roomHeight)
     {
-        Room[] r =
+        int mapWidth = cols * roomWidth + (cols - 1) + 2;
+        int mapHeight = rows * roomHeight + (rows - 1) + 2;
+
+        var roomList = new List<Room>();
+        var doorList = new List<RectInt>();
+        int index = 0;
+
+        for (int row = 0; row < rows; row++)
         {
-            new Room(new RectInt(2, 2, 10, 6), RoomType.Ward),
-            new Room(new RectInt(14, 2, 10, 6), RoomType.Lab),
-            new Room(new RectInt(2, 10, 10, 6), RoomType.Control),
-            new Room(new RectInt(14, 10, 10, 6), RoomType.Storage),
-        };
-        RectInt[] c = { new RectInt(12, 3, 2, 4), new RectInt(12, 11, 2, 4), new RectInt(5, 8, 4, 2), new RectInt(17, 8, 4, 2) };
-        return new Layout(26, 18, r, c, new Vector2Int(7, 5));
+            for (int col = 0; col < cols; col++)
+            {
+                int x = 1 + col * (roomWidth + 1);
+                int y = 1 + row * (roomHeight + 1);
+                roomList.Add(new Room(new RectInt(x, y, roomWidth, roomHeight), TypeForIndex(index)));
+                index++;
+
+                if (col + 1 < cols)
+                {
+                    doorList.Add(new RectInt(x + roomWidth, y + (roomHeight - 3) / 2, 1, 3));
+                }
+                if (row + 1 < rows)
+                {
+                    doorList.Add(new RectInt(x + (roomWidth - 3) / 2, y + roomHeight, 3, 1));
+                }
+            }
+        }
+
+        int spawnX = 1 + (cols / 2) * (roomWidth + 1) + roomWidth / 2;
+        int spawnY = 1 + (rows / 2) * (roomHeight + 1) + roomHeight / 2;
+        return new Layout(mapWidth, mapHeight, roomList.ToArray(), doorList.ToArray(), new Vector2Int(spawnX, spawnY));
     }
 
-    // Level 2 — central corridor with six rooms opening off it.
-    private static Layout BuildLevel2()
+    // Cycles room types so every floor mixes laboratory and medical rooms.
+    private static RoomType TypeForIndex(int index)
     {
-        Room[] r =
-        {
-            new Room(new RectInt(1, 1, 11, 7), RoomType.MedBay),
-            new Room(new RectInt(13, 1, 11, 7), RoomType.Storage),
-            new Room(new RectInt(25, 1, 12, 7), RoomType.Lab),
-            new Room(new RectInt(1, 13, 13, 7), RoomType.Office),
-            new Room(new RectInt(15, 13, 10, 7), RoomType.Reactor),
-            new Room(new RectInt(26, 13, 11, 7), RoomType.Ward),
-        };
-        RectInt[] c =
-        {
-            new RectInt(1, 9, 36, 3),
-            new RectInt(5, 8, 2, 1), new RectInt(17, 8, 2, 1), new RectInt(30, 8, 2, 1),
-            new RectInt(6, 12, 2, 1), new RectInt(19, 12, 2, 1), new RectInt(30, 12, 2, 1),
-        };
-        return new Layout(38, 21, r, c, new Vector2Int(19, 10));
-    }
-
-    // Level 3 — a central arena with four rooms branching off it.
-    private static Layout BuildLevel3()
-    {
-        Room[] r =
-        {
-            new Room(new RectInt(11, 9, 9, 7), RoomType.Reactor),
-            new Room(new RectInt(11, 18, 9, 4), RoomType.Lab),
-            new Room(new RectInt(11, 4, 9, 3), RoomType.MedBay),
-            new Room(new RectInt(1, 9, 8, 7), RoomType.Control),
-            new Room(new RectInt(22, 9, 8, 7), RoomType.Storage),
-        };
-        RectInt[] c = { new RectInt(13, 16, 3, 2), new RectInt(13, 7, 3, 2), new RectInt(9, 11, 2, 3), new RectInt(20, 11, 2, 3) };
-        return new Layout(31, 23, r, c, new Vector2Int(15, 12));
-    }
-
-    // Level 4 — two wings of rooms either side of a big central hall.
-    private static Layout BuildLevel4()
-    {
-        Room[] r =
-        {
-            new Room(new RectInt(1, 1, 9, 6), RoomType.Lab),
-            new Room(new RectInt(1, 9, 9, 6), RoomType.Control),
-            new Room(new RectInt(1, 17, 9, 5), RoomType.Storage),
-            new Room(new RectInt(25, 1, 9, 6), RoomType.Ward),
-            new Room(new RectInt(25, 9, 9, 6), RoomType.MedBay),
-            new Room(new RectInt(25, 17, 9, 5), RoomType.Office),
-        };
-        RectInt[] c =
-        {
-            new RectInt(12, 1, 11, 21),
-            new RectInt(10, 3, 2, 3), new RectInt(10, 11, 2, 3), new RectInt(10, 18, 2, 3),
-            new RectInt(23, 3, 2, 3), new RectInt(23, 11, 2, 3), new RectInt(23, 18, 2, 3),
-        };
-        return new Layout(35, 23, r, c, new Vector2Int(17, 11));
-    }
-
-    // Level 5 — a dense 3x3 grid of rooms. The final floor.
-    private static Layout BuildLevel5()
-    {
-        Room[] r =
-        {
-            new Room(new RectInt(1, 1, 9, 6), RoomType.Lab),
-            new Room(new RectInt(13, 1, 9, 6), RoomType.Storage),
-            new Room(new RectInt(25, 1, 9, 6), RoomType.Ward),
-            new Room(new RectInt(1, 8, 9, 6), RoomType.Control),
-            new Room(new RectInt(13, 8, 9, 6), RoomType.Reactor),
-            new Room(new RectInt(25, 8, 9, 6), RoomType.MedBay),
-            new Room(new RectInt(1, 15, 9, 6), RoomType.Office),
-            new Room(new RectInt(13, 15, 9, 6), RoomType.Lab),
-            new Room(new RectInt(25, 15, 9, 6), RoomType.Storage),
-        };
-        RectInt[] c =
-        {
-            new RectInt(10, 3, 3, 2), new RectInt(22, 3, 3, 2),
-            new RectInt(10, 10, 3, 2), new RectInt(22, 10, 3, 2),
-            new RectInt(10, 17, 3, 2), new RectInt(22, 17, 3, 2),
-            new RectInt(4, 7, 2, 1), new RectInt(16, 7, 2, 1), new RectInt(28, 7, 2, 1),
-            new RectInt(4, 14, 2, 1), new RectInt(16, 14, 2, 1), new RectInt(28, 14, 2, 1),
-        };
-        return new Layout(35, 23, r, c, new Vector2Int(17, 10));
+        RoomType[] cycle = { RoomType.Lab, RoomType.Ward, RoomType.Control, RoomType.MedBay, RoomType.Reactor, RoomType.Office, RoomType.Storage };
+        return cycle[index % cycle.Length];
     }
 }
