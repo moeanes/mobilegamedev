@@ -47,13 +47,23 @@ public class GameManager : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R))
         {
-            LevelDatabase.ResetToFirstLevel();
-            SceneManager.LoadScene(gameSceneName);
+            RestartGame();
         }
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
-            SceneManager.LoadScene(menuSceneName);
+            ReturnToMenu();
         }
+    }
+
+    public void RestartGame()
+    {
+        LevelDatabase.ResetToFirstLevel();
+        SceneManager.LoadScene(gameSceneName);
+    }
+
+    public void ReturnToMenu()
+    {
+        SceneManager.LoadScene(menuSceneName);
     }
 
     public void RegisterHud(Hud newHud) => hud = newHud;
@@ -77,8 +87,7 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        State = GameState.GameOver;
-        hud?.ShowMessage("GAME OVER\n\nR: bastan basla    Esc: menu");
+        State = GameState.GameOver; // Hud draws the game-over screen from this state
     }
 
     public void OnLevelComplete(int currentLevel)
@@ -91,8 +100,7 @@ public class GameManager : MonoBehaviour
         int nextLevel = currentLevel + 1;
         if (nextLevel > LevelDatabase.FinalLevel)
         {
-            State = GameState.GameWin;
-            hud?.ShowMessage("KAZANDIN!\n\nR: tekrar oyna    Esc: menu");
+            State = GameState.GameWin; // Hud draws the win screen from this state
             return;
         }
 

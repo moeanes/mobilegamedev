@@ -1,7 +1,8 @@
 using UnityEngine;
 
-// In-game UI (IMGUI). Health shows as hearts (top-left) cut from Resources/UI/HealthUI.png;
-// level + remaining enemies as text; a panelled center message for win/lose/cleared.
+// In-game UI (IMGUI). During play: hearts (top-left) cut from Resources/UI/HealthUI.png,
+// level + remaining enemies as text, and a panelled centre message for transient notices.
+// On game over / win it draws a full-screen end screen with Restart / Menu buttons.
 public class Hud : MonoBehaviour
 {
     // HealthUI.png is a 3x7 grid of 11px hearts. The top-left cell is a full red heart.
@@ -20,6 +21,9 @@ public class Hud : MonoBehaviour
     private GUIStyle centerStyle;
     private Texture2D heartSheet;
     private Texture2D panel;
+    private Texture2D gameOverImage;
+    private Texture2D restartButton;
+    private Texture2D menuButton;
     private Rect heartUV;
 
     public static Hud Create()
@@ -49,6 +53,19 @@ public class Hud : MonoBehaviour
     {
         EnsureResources();
 
+        GameManager gameManager = GameManager.Instance;
+        if (gameManager != null && gameManager.State == GameManager.GameState.GameOver)
+        {
+            DrawEndScreen(gameOverImage, null);
+            return;
+        }
+
+        if (gameManager != null && gameManager.State == GameManager.GameState.GameWin)
+        {
+            DrawEndScreen(null, "KAZANDIN!");
+            return;
+        }
+
         DrawHearts();
 
         infoStyle.alignment = TextAnchor.MiddleCenter;
@@ -64,6 +81,43 @@ public class Hud : MonoBehaviour
             var panelRect = new Rect(Screen.width * 0.5f - panelWidth * 0.5f, Screen.height * 0.5f - panelHeight * 0.5f, panelWidth, panelHeight);
             GUI.DrawTexture(panelRect, panel);
             GUI.Label(panelRect, centerMessage, centerStyle);
+        }
+    }
+
+    // Full-screen end screen: artwork background (game over) or a dimmed headline (win),
+    // with Restart and Menu buttons under it.
+    private void DrawEndScreen(Texture2D artwork, string headline)
+    {
+        if (artwork != null)
+        {
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), artwork, ScaleMode.ScaleAndCrop);
+        }
+        else
+        {
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), panel);
+            if (!string.IsNullOrEmpty(headline))
+            {
+                GUI.Label(new Rect(0f, Screen.height * 0.28f, Screen.width, 120f), headline, centerStyle);
+            }
+        }
+
+        GameManager gameManager = GameManager.Instance;
+
+        // Restart on the far left, menu on the far right, so the fallen doctor stays
+        // visible in the open centre between them.
+        float buttonWidth = Mathf.Min(280f, Screen.width * 0.25f);
+        float buttonTop = Screen.height * 0.80f - UiButton.Height(restartButton, buttonWidth) * 0.5f;
+        float leftX = Screen.width * 0.19f;
+        float rightX = Screen.width * 0.81f;
+
+        if (UiButton.Draw(restartButton, leftX, buttonTop, buttonWidth))
+        {
+            gameManager?.RestartGame();
+        }
+
+        if (UiButton.Draw(menuButton, rightX, buttonTop, buttonWidth))
+        {
+            gameManager?.ReturnToMenu();
         }
     }
 
@@ -106,6 +160,9 @@ public class Hud : MonoBehaviour
         {
             panel = SolidTexture(new Color(0.05f, 0.06f, 0.09f, 0.82f));
             heartSheet = Resources.Load<Texture2D>("UI/HealthUI");
+            gameOverImage = Resources.Load<Texture2D>("UI/game_over");
+            restartButton = Resources.Load<Texture2D>("UI/btn_restart");
+            menuButton = Resources.Load<Texture2D>("UI/btn_menu");
 
             float cellWidth = 1f / SheetCols;
             float cellHeight = 1f / SheetRows;
