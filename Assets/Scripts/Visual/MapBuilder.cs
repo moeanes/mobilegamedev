@@ -157,16 +157,24 @@ public static class MapBuilder
             return;
         }
 
+        Texture2D wallSheet = Resources.Load<Texture2D>("Tiles/lab_walls");
+        Sprite wallTile = wallSheet != null ? Slice(wallSheet, WallColumn, WallRow) : null;
+
+        // Spray breaking chunks where the interior walls stand, THEN swap them for the open
+        // arena — so the walls look like they shatter rather than vanish.
+        if (wallTile != null)
+        {
+            SpawnCrumble(map, wallTile);
+        }
+
         DestroyByName("Walls");
         DestroyByName("Doors");
 
-        Texture2D wallSheet = Resources.Load<Texture2D>("Tiles/lab_walls");
-        if (wallSheet == null)
+        if (wallTile == null)
         {
             return;
         }
 
-        Sprite wallTile = Slice(wallSheet, WallColumn, WallRow);
         Transform parent = new GameObject("Walls").transform;
 
         float width = map.WidthCells;
@@ -177,6 +185,40 @@ public static class MapBuilder
         MakeWallBox(parent, wallTile, new Vector2(center.x, map.WorldMax.y - 0.5f), new Vector2(width, 1f));
         MakeWallBox(parent, wallTile, new Vector2(map.WorldMin.x + 0.5f, center.y), new Vector2(1f, height));
         MakeWallBox(parent, wallTile, new Vector2(map.WorldMax.x - 0.5f, center.y), new Vector2(1f, height));
+    }
+
+    // A breaking chunk at every interior wall cell, flung outward from the centre — the
+    // visible "smash". Border cells are left out so the outer wall stays whole.
+    private static void SpawnCrumble(RoomMap map, Sprite tile)
+    {
+        Transform parent = new GameObject("WallDebris").transform;
+        int width = map.WidthCells;
+        int height = map.HeightCells;
+        Vector2 center = (map.WorldMin + map.WorldMax) * 0.5f;
+
+        foreach (Vector2Int cell in map.WallCells())
+        {
+            if (cell.x == 0 || cell.y == 0 || cell.x == width - 1 || cell.y == height - 1)
+            {
+                continue;
+            }
+
+            Vector2 position = map.CellToWorld(cell);
+
+            GameObject chunk = new GameObject("Debris");
+            chunk.transform.SetParent(parent, false);
+            chunk.transform.position = new Vector3(position.x, position.y, 1f);
+
+            SpriteRenderer renderer = chunk.AddComponent<SpriteRenderer>();
+            renderer.sprite = tile;
+            renderer.sortingOrder = 8; // over the floor and walls, under the characters
+
+            Vector2 outward = position - center;
+            outward = outward.sqrMagnitude > 0.01f ? outward.normalized : Vector2.up;
+            Vector2 velocity = outward * Random.Range(1.5f, 4f) + Vector2.up * Random.Range(1f, 3f);
+
+            chunk.AddComponent<WallDebris>().Launch(velocity, Random.Range(-360f, 360f), Random.Range(0.45f, 0.8f));
+        }
     }
 
     private static void DestroyByName(string name)

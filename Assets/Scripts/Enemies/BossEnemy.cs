@@ -10,7 +10,7 @@ using UnityEngine;
 [RequireComponent(typeof(EnemyHealth))]
 public class BossEnemy : MonoBehaviour
 {
-    public float moveSpeed = 1.8f;
+    public float moveSpeed = 2.5f;
     public int contactDamage = 1;
     public float contactCooldown = 0.9f;
 
