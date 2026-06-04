@@ -87,6 +87,10 @@ public class GameManager : MonoBehaviour
 
     public void OnEnemiesRemainingChanged(int enemiesRemaining) => hud?.SetEnemiesRemaining(enemiesRemaining);
 
+    public void OnBossHealthChanged(int current, int max) => hud?.SetBossHealth(current, max);
+
+    public void HideBossBar() => hud?.HideBoss();
+
     public void OnPlayerDied()
     {
         if (State != GameState.Playing)

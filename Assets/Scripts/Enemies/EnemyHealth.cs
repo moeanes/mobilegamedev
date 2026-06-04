@@ -1,15 +1,23 @@
+using System;
 using UnityEngine;
 
 // Enemy hit points. On death it tells the LevelManager (so the level can count kills)
-// and removes itself.
+// and removes itself. The boss reuses this component (so the doctor's bullets damage it
+// the same way), but sets reportToLevelManager = false and listens to Died — so its death
+// ends the level as a win instead of counting as one more kill.
 public class EnemyHealth : MonoBehaviour
 {
     public int maxHealth = 3;
+    public bool reportToLevelManager = true;
 
     private int currentHealth;
     private bool isDead;
 
     public bool IsDead => isDead;
+    public int CurrentHealth => currentHealth;
+
+    public event Action<int, int> HealthChanged;
+    public event Action Died;
 
     private void Awake()
     {
@@ -30,6 +38,8 @@ public class EnemyHealth : MonoBehaviour
         }
 
         currentHealth = Mathf.Max(0, currentHealth - amount);
+        HealthChanged?.Invoke(currentHealth, maxHealth);
+
         if (currentHealth == 0)
         {
             Die();
@@ -51,7 +61,12 @@ public class EnemyHealth : MonoBehaviour
             collider.enabled = false;
         }
 
-        LevelManager.Instance?.NotifyEnemyKilled(this);
+        if (reportToLevelManager)
+        {
+            LevelManager.Instance?.NotifyEnemyKilled(this);
+        }
+
+        Died?.Invoke();
         Destroy(gameObject);
     }
 }

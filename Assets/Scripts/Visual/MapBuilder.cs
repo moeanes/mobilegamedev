@@ -83,20 +83,19 @@ public static class MapBuilder
     {
         Transform parent = new GameObject("Floor").transform;
 
-        foreach (RectInt rect in map.FloorRects)
-        {
-            Vector2 center = map.RectCenterWorld(rect);
+        // One floor spanning the whole map — under the walls too. When the boss smashes the
+        // interior walls open, the floor is already there, so no holes show through.
+        Vector2 center = (map.WorldMin + map.WorldMax) * 0.5f;
 
-            GameObject piece = new GameObject("FloorPiece");
-            piece.transform.SetParent(parent, false);
-            piece.transform.position = new Vector3(center.x, center.y, 5f);
+        GameObject piece = new GameObject("FloorPiece");
+        piece.transform.SetParent(parent, false);
+        piece.transform.position = new Vector3(center.x, center.y, 5f);
 
-            SpriteRenderer renderer = piece.AddComponent<SpriteRenderer>();
-            renderer.sprite = tile;
-            renderer.drawMode = SpriteDrawMode.Tiled;
-            renderer.size = new Vector2(rect.width, rect.height);
-            renderer.sortingOrder = -10;
-        }
+        SpriteRenderer renderer = piece.AddComponent<SpriteRenderer>();
+        renderer.sprite = tile;
+        renderer.drawMode = SpriteDrawMode.Tiled;
+        renderer.size = new Vector2(map.WidthCells, map.HeightCells);
+        renderer.sortingOrder = -10;
     }
 
     private static void BuildWalls(RoomMap map, Sprite tile)
@@ -146,6 +145,64 @@ public static class MapBuilder
 
         BoxCollider2D collider = wall.AddComponent<BoxCollider2D>();
         collider.size = new Vector2(length, 1f);
+    }
+
+    // Smashes every interior wall and door into one open arena, leaving only the outer
+    // border so the player stays in bounds. Called when the boss lands. The full-map floor
+    // is already under the removed walls, so nothing shows through.
+    public static void OpenArena(RoomMap map)
+    {
+        if (map == null)
+        {
+            return;
+        }
+
+        DestroyByName("Walls");
+        DestroyByName("Doors");
+
+        Texture2D wallSheet = Resources.Load<Texture2D>("Tiles/lab_walls");
+        if (wallSheet == null)
+        {
+            return;
+        }
+
+        Sprite wallTile = Slice(wallSheet, WallColumn, WallRow);
+        Transform parent = new GameObject("Walls").transform;
+
+        float width = map.WidthCells;
+        float height = map.HeightCells;
+        Vector2 center = (map.WorldMin + map.WorldMax) * 0.5f;
+
+        MakeWallBox(parent, wallTile, new Vector2(center.x, map.WorldMin.y + 0.5f), new Vector2(width, 1f));
+        MakeWallBox(parent, wallTile, new Vector2(center.x, map.WorldMax.y - 0.5f), new Vector2(width, 1f));
+        MakeWallBox(parent, wallTile, new Vector2(map.WorldMin.x + 0.5f, center.y), new Vector2(1f, height));
+        MakeWallBox(parent, wallTile, new Vector2(map.WorldMax.x - 0.5f, center.y), new Vector2(1f, height));
+    }
+
+    private static void DestroyByName(string name)
+    {
+        GameObject existing = GameObject.Find(name);
+        if (existing != null)
+        {
+            Object.Destroy(existing);
+        }
+    }
+
+    private static void MakeWallBox(Transform parent, Sprite tile, Vector2 center, Vector2 size)
+    {
+        GameObject wall = new GameObject("Wall");
+        wall.transform.SetParent(parent, false);
+        wall.transform.position = new Vector3(center.x, center.y, 2f);
+        wall.layer = GameLayers.Wall;
+
+        SpriteRenderer renderer = wall.AddComponent<SpriteRenderer>();
+        renderer.sprite = tile;
+        renderer.drawMode = SpriteDrawMode.Tiled;
+        renderer.size = size;
+        renderer.sortingOrder = -4;
+
+        BoxCollider2D collider = wall.AddComponent<BoxCollider2D>();
+        collider.size = size;
     }
 
     // Cuts one 32x32 tile out of a sheet. Sheets are addressed from the top row down;

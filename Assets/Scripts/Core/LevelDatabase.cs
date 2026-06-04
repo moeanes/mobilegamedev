@@ -61,6 +61,7 @@ public static class LevelDatabase
                     spawnInterval = 0.85f, maxConcurrentAlive = 5,
                     rangedWeight = 0.35f, rangedFromLevel = 2,
                     floorTileResource = "Tiles/lab_floor", floorTint = new Color(0.94f, 0.74f, 0.74f, 1f),
+                    hasBoss = true,
                 };
         }
     }

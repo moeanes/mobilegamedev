@@ -46,6 +46,43 @@ public static class EnemyFactory
         return root;
     }
 
+    // The final-level boss: a big virus with lots of health and its own behaviour script.
+    // The projectile it fires is wired in by LevelManager when it spawns.
+    public static GameObject CreateBossTemplate()
+    {
+        GameObject root = new GameObject("BossTemplate");
+        root.SetActive(false);
+        root.layer = GameLayers.Enemy;
+
+        Rigidbody2D body = root.AddComponent<Rigidbody2D>();
+        body.bodyType = RigidbodyType2D.Dynamic;
+        body.gravityScale = 0f;
+        body.freezeRotation = true;
+        body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        body.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+        CircleCollider2D collider = root.AddComponent<CircleCollider2D>();
+        collider.radius = 1.6f;
+
+        root.AddComponent<EnemyHealth>().maxHealth = 60;
+        root.AddComponent<BossEnemy>();
+
+        GameObject visual = new GameObject("Visual");
+        visual.transform.SetParent(root.transform, false);
+        visual.transform.localScale = new Vector3(2.6f, 2.6f, 1f);
+
+        SpriteRenderer renderer = visual.AddComponent<SpriteRenderer>();
+        renderer.sortingOrder = 12;
+
+        Sprite[] faces = SpriteSheetLoader.Load("Characters/boss", 64, 64, 7);
+        if (faces.Length > 0)
+        {
+            renderer.sprite = faces[0];
+        }
+
+        return root;
+    }
+
     private static GameObject CreateEnemyBody(string name, string sheetResource, float visualScale, int frameCount)
     {
         GameObject root = new GameObject(name);

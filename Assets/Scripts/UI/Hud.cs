@@ -16,6 +16,9 @@ public class Hud : MonoBehaviour
     private int level = 1;
     private int enemiesRemaining;
     private string centerMessage;
+    private int bossHealth;
+    private int bossMax;
+    private bool bossVisible;
 
     private GUIStyle infoStyle;
     private GUIStyle centerStyle;
@@ -48,6 +51,15 @@ public class Hud : MonoBehaviour
     public void SetEnemiesRemaining(int value) => enemiesRemaining = value;
 
     public void ShowMessage(string message) => centerMessage = message;
+
+    public void SetBossHealth(int current, int max)
+    {
+        bossHealth = current;
+        bossMax = max;
+        bossVisible = max > 0;
+    }
+
+    public void HideBoss() => bossVisible = false;
 
     private void OnGUI()
     {
@@ -82,6 +94,11 @@ public class Hud : MonoBehaviour
             var panelRect = new Rect(Screen.width * 0.5f - panelWidth * 0.5f, Screen.height * 0.5f - panelHeight * 0.5f, panelWidth, panelHeight);
             GUI.DrawTexture(panelRect, panel);
             GUI.Label(panelRect, centerMessage, centerStyle);
+        }
+
+        if (bossVisible && bossMax > 0)
+        {
+            DrawBossBar();
         }
     }
 
@@ -120,6 +137,30 @@ public class Hud : MonoBehaviour
         {
             gameManager?.ReturnToMenu();
         }
+    }
+
+    // Wide boss health bar across the bottom, with a "BOSS" label. Green, turning red in the
+    // final third so the player feels the boss closing in.
+    private void DrawBossBar()
+    {
+        float barWidth = Mathf.Min(620f, Screen.width * 0.5f);
+        const float barHeight = 22f;
+        float x = Screen.width * 0.5f - barWidth * 0.5f;
+        float y = Screen.height - 56f;
+
+        GUI.color = new Color(0f, 0f, 0f, 0.55f);
+        GUI.DrawTexture(new Rect(x - 4f, y - 4f, barWidth + 8f, barHeight + 8f), Texture2D.whiteTexture);
+
+        GUI.color = new Color(0.14f, 0.14f, 0.18f, 1f);
+        GUI.DrawTexture(new Rect(x, y, barWidth, barHeight), Texture2D.whiteTexture);
+
+        float fraction = Mathf.Clamp01((float)bossHealth / bossMax);
+        GUI.color = fraction < 0.34f ? new Color(0.86f, 0.26f, 0.28f) : new Color(0.49f, 0.84f, 0.32f);
+        GUI.DrawTexture(new Rect(x, y, barWidth * fraction, barHeight), Texture2D.whiteTexture);
+
+        GUI.color = Color.white;
+        infoStyle.alignment = TextAnchor.MiddleCenter;
+        GUI.Label(new Rect(x, y - 30f, barWidth, 28f), "BOSS", infoStyle);
     }
 
     private void DrawHearts()

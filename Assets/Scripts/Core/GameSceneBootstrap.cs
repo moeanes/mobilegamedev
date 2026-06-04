@@ -34,8 +34,9 @@ public class GameSceneBootstrap : MonoBehaviour
         GameObject meleeTemplate = EnemyFactory.CreateMeleeTemplate();
         GameObject blueRanged = EnemyFactory.CreateRangedTemplate("BlueRanged", "Characters/enemy3", 5, 2, 2f, blueProjectile);
         GameObject pinkRanged = EnemyFactory.CreateRangedTemplate("PinkRanged", "Characters/enemy2", 1, 2, 1f, pinkProjectile);
+        GameObject bossTemplate = EnemyFactory.CreateBossTemplate();
 
-        BuildLevelManager(map, data, player.transform, meleeTemplate, new[] { blueRanged, pinkRanged });
+        BuildLevelManager(map, data, player.transform, meleeTemplate, new[] { blueRanged, pinkRanged }, bossTemplate, blueProjectile);
         Hud.Create();
         new GameObject("PauseMenu").AddComponent<PauseMenu>();
         FitCamera(camera, map);
@@ -77,10 +78,10 @@ public class GameSceneBootstrap : MonoBehaviour
         return camera;
     }
 
-    private void BuildLevelManager(RoomMap map, LevelData data, Transform player, GameObject melee, GameObject[] ranged)
+    private void BuildLevelManager(RoomMap map, LevelData data, Transform player, GameObject melee, GameObject[] ranged, GameObject boss, GameObject bossProjectile)
     {
         LevelManager levelManager = new GameObject("LevelManager").AddComponent<LevelManager>();
-        levelManager.Initialize(map, data, player, melee, ranged);
+        levelManager.Initialize(map, data, player, melee, ranged, boss, bossProjectile);
     }
 
     private void FitCamera(Camera camera, RoomMap map)

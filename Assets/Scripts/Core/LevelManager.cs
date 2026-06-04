@@ -26,6 +26,9 @@ public class LevelManager : MonoBehaviour
     private Transform player;
     private GameObject meleeTemplate;
     private GameObject[] rangedTemplates;
+    private GameObject bossTemplate;
+    private GameObject bossProjectile;
+    private bool bossSpawned;
     private readonly List<EnemyHealth> aliveEnemies = new List<EnemyHealth>();
     private int spawnedCount;
     private int killedCount;
@@ -52,13 +55,15 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    public void Initialize(RoomMap roomMap, LevelData levelData, Transform playerTransform, GameObject melee, GameObject[] ranged)
+    public void Initialize(RoomMap roomMap, LevelData levelData, Transform playerTransform, GameObject melee, GameObject[] ranged, GameObject boss, GameObject bossProjectileTemplate)
     {
         map = roomMap;
         data = levelData;
         player = playerTransform;
         meleeTemplate = melee;
         rangedTemplates = ranged;
+        bossTemplate = boss;
+        bossProjectile = bossProjectileTemplate;
     }
 
     private void Start()
@@ -73,11 +78,23 @@ public class LevelManager : MonoBehaviour
         killedCount++;
         GameManager.Instance?.OnEnemiesRemainingChanged(RemainingToKill);
 
-        if (!levelComplete && killedCount >= data.enemiesToKill)
+        if (levelComplete || killedCount < data.enemiesToKill)
         {
-            levelComplete = true;
-            StartCoroutine(LevelCompleteRoutine());
+            return;
         }
+
+        if (data.hasBoss)
+        {
+            if (!bossSpawned)
+            {
+                SpawnBoss();
+            }
+
+            return; // once the boss is in, only its death finishes the level
+        }
+
+        levelComplete = true;
+        StartCoroutine(LevelCompleteRoutine());
     }
 
     private IEnumerator SpawnLoop()
@@ -133,6 +150,50 @@ public class LevelManager : MonoBehaviour
         GameManager.Instance?.ShowMessage("Bolum tamamlandi!");
         yield return new WaitForSeconds(levelCompleteDelay);
         GameManager.Instance?.OnLevelComplete(data.levelIndex);
+    }
+
+    // Final level: instead of finishing when the kill target is hit, drop the boss in. The
+    // level is won only when the boss dies (its EnemyHealth.Died -> OnBossDefeated).
+    private void SpawnBoss()
+    {
+        if (bossTemplate == null)
+        {
+            levelComplete = true;
+            StartCoroutine(LevelCompleteRoutine());
+            return;
+        }
+
+        bossSpawned = true;
+
+        Vector2 center = (map.WorldMin + map.WorldMax) * 0.5f;
+        GameObject boss = Instantiate(bossTemplate, center, Quaternion.identity);
+        boss.SetActive(true);
+
+        BossEnemy bossEnemy = boss.GetComponent<BossEnemy>();
+        if (bossEnemy != null)
+        {
+            bossEnemy.projectilePrefab = bossProjectile;
+            bossEnemy.Init(player, map);
+        }
+
+        EnemyHealth bossHealth = boss.GetComponent<EnemyHealth>();
+        if (bossHealth != null)
+        {
+            bossHealth.reportToLevelManager = false; // its death wins the level, not a kill
+            bossHealth.Died += OnBossDefeated;
+        }
+    }
+
+    private void OnBossDefeated()
+    {
+        if (levelComplete)
+        {
+            return;
+        }
+
+        levelComplete = true;
+        GameManager.Instance?.HideBossBar();
+        StartCoroutine(LevelCompleteRoutine());
     }
 
     private void SpawnEnemy()
